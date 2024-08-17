@@ -17,16 +17,28 @@ const postImages = async (req, res) => {
     if (!response.data.success) {
       return res.status(400).json({ error: 'Invalid CAPTCHA response' });
     }
+    const { email } = req.body;
+    const user_images = req.files.map(
+      (image) => `${serverDomain}/${image.filename}`
+    );
 
     const document = {
       name: req.body.name,
       email: req.body.email,
       time: new Date(),
-      images: [],
+      images: user_images,
     };
-    req.files.forEach((image) => document.images.push(`${serverDomain}/${image.filename}`));
-
-    const result = await imageCollection.insertOne(document);
+    let result;
+    const existed_uploader = await imageCollection.findOne({ email });
+    if (!existed_uploader) {
+      result = await imageCollection.insertOne(document);
+    } else {
+      result = await imageCollection.updateOne(
+        { email },
+        { $push: { images: { $each: user_images } } }
+      );
+    }
+    
     res.json(result);
   } catch (error) {
     console.error(error);
